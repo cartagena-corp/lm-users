@@ -12,7 +12,6 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/api/roles")
-@CrossOrigin(origins = "*")
 public class RoleController {
 
     private final RoleService roleService;
