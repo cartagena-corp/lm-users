@@ -13,6 +13,6 @@ server:
   port: '8085'
 app:
   cors:
-    allowed-origins: https://cartagenacorporation.com
+    allowed-origins: https://cartagenacorporation.com,https://www.cartagenacorporation.com
   jwt:
     secret: ${JWT_SECRET}
