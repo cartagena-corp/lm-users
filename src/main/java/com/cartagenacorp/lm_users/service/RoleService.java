@@ -1,13 +1,15 @@
 package com.cartagenacorp.lm_users.service;
 
+import com.cartagenacorp.lm_users.dto.RoleDto;
 import com.cartagenacorp.lm_users.entity.Permission;
 import com.cartagenacorp.lm_users.entity.Role;
+import com.cartagenacorp.lm_users.exceptions.BaseException;
+import com.cartagenacorp.lm_users.mapper.RoleMapper;
 import com.cartagenacorp.lm_users.repository.PermissionRepository;
 import com.cartagenacorp.lm_users.repository.RoleRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.cartagenacorp.lm_users.util.ConstantUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Set;
@@ -18,49 +20,70 @@ public class RoleService {
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final RoleMapper roleMapper;
 
-    @Autowired
-    public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository) {
+    public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository,
+                       RoleMapper roleMapper) {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
+        this.roleMapper = roleMapper;
     }
 
-    public List<Role> getAllRoles() {
-        return roleRepository.findAll();
+    public List<RoleDto> getAllRoles() {
+        List<Role> roles = roleRepository.findAll();
+        return roles.stream()
+                .map(rol -> roleMapper.toDto(rol))
+                .collect(Collectors.toList());
     }
 
-    public Role getRole(String name) {
-        return roleRepository.findById(name).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
+    public RoleDto getRole(String name) {
+        Role role =  roleRepository.findById(name)
+                .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
+
+        return roleMapper.toDto(role);
     }
 
     public void deleteRole(String name) {
         Role role = roleRepository.findById(name)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
+                .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
         roleRepository.delete(role);
     }
 
-    public Role createRole(Role role) {
-        if (roleRepository.existsById(role.getName())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "The role already exists: " + role.getName());
+    public RoleDto createRole(RoleDto roleDto) {
+        if (roleRepository.existsById(roleDto.getName())) {
+            throw new BaseException(ConstantUtil.DUPLICATE_ROLE, HttpStatus.BAD_REQUEST.value());
         }
-        Set<Permission> existingPermissions = role.getPermissions().stream()
+        Set<Permission> existingPermissions = roleDto.getPermissions().stream()
                 .map(p -> permissionRepository.findById(p.getName())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Permission not found: " + p.getName())))
+                        .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND + ": " + p.getName(), HttpStatus.NOT_FOUND.value())))
                 .collect(Collectors.toSet());
 
-        role.setPermissions(existingPermissions);
-        return roleRepository.save(role);
+        Role newRole = roleMapper.toEntity(roleDto);
+        newRole.setPermissions(existingPermissions);
+        Role savedRole = roleRepository.save(newRole);
+
+        return roleMapper.toDto(savedRole);
     }
 
-    public Role updateRole(String name, Role updated) {
-        Role role = roleRepository.findById(name).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Role not found"));
-        Set<Permission> existingPermissions = updated.getPermissions().stream()
+    public RoleDto updateRole(String name, RoleDto roleDto) {
+        Role existingRole = roleRepository.findById(name)
+                .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
+
+        roleMapper.partialUpdate(roleDto, existingRole);
+
+        Set<Permission> existingPermissions = roleDto.getPermissions().stream()
                 .map(p -> permissionRepository.findById(p.getName())
-                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Permission not found: " + p.getName())))
+                        .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND + ": " + p.getName(), HttpStatus.NOT_FOUND.value())))
                 .collect(Collectors.toSet());
 
-        role.setPermissions(existingPermissions);
-        return roleRepository.save(role);
+        existingRole.setPermissions(existingPermissions);
+        Role savedRole = roleRepository.save(existingRole);
+
+        return roleMapper.toDto(savedRole);
+    }
+
+    public boolean roleExists(String name) {
+        return roleRepository.existsById(name);
     }
 
 }
