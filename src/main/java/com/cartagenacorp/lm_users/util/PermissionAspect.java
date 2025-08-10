@@ -13,6 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.UUID;
 
 @Aspect
 @Component
@@ -38,14 +39,24 @@ public class PermissionAspect {
 
         List<String> permissions = jwtTokenUtil.getPermissionsFromToken(token);
 
-        boolean hasPermission = Arrays.stream(requiresPermission.value())
-                .anyMatch(permissions::contains);
+        UUID userId = jwtTokenUtil.getUserId(token);
+        UUID organizationId = jwtTokenUtil.getOrganizationId(token);
+        JwtContextHolder.setUserId(userId);
+        JwtContextHolder.setToken(token);
+        JwtContextHolder.setOrganizationId(organizationId);
 
-        if (!hasPermission) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions");
+        try {
+            boolean hasPermission = Arrays.stream(requiresPermission.value())
+                    .anyMatch(permissions::contains);
+
+            if (!hasPermission) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Insufficient permissions");
+            }
+
+            return joinPoint.proceed();
+        } finally {
+            JwtContextHolder.clear();
         }
-
-        return joinPoint.proceed();
     }
 }
 

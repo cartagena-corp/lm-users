@@ -1,18 +1,24 @@
 package com.cartagenacorp.lm_users.service;
 
+import com.cartagenacorp.lm_users.dto.PermissionDto;
 import com.cartagenacorp.lm_users.dto.RoleDto;
 import com.cartagenacorp.lm_users.entity.Permission;
 import com.cartagenacorp.lm_users.entity.Role;
+import com.cartagenacorp.lm_users.entity.RoleId;
 import com.cartagenacorp.lm_users.exceptions.BaseException;
 import com.cartagenacorp.lm_users.mapper.RoleMapper;
 import com.cartagenacorp.lm_users.repository.PermissionRepository;
 import com.cartagenacorp.lm_users.repository.RoleRepository;
 import com.cartagenacorp.lm_users.util.ConstantUtil;
+import com.cartagenacorp.lm_users.util.JwtContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,27 +36,46 @@ public class RoleService {
     }
 
     public List<RoleDto> getAllRoles() {
-        List<Role> roles = roleRepository.findAll();
+        UUID organizationId = JwtContextHolder.getOrganizationId();
+        List<Role> roles = roleRepository.findByOrganizationIdOrderByName(organizationId);
+
         return roles.stream()
-                .map(rol -> roleMapper.toDto(rol))
+                .map(this::toDtoWithSortedPermissions)
                 .collect(Collectors.toList());
     }
 
     public RoleDto getRole(String name) {
-        Role role =  roleRepository.findById(name)
+        UUID organizationId = JwtContextHolder.getOrganizationId();
+        RoleId roleId = new RoleId(name, organizationId);
+
+        Role role =  roleRepository.findById(roleId)
+                .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
+
+        return roleMapper.toDto(role);
+    }
+
+    public RoleDto getRoleByOrganizationIdAndName(String name, UUID organizationId) {
+        RoleId roleId = new RoleId(name, organizationId);
+
+        Role role =  roleRepository.findById(roleId)
                 .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
 
         return roleMapper.toDto(role);
     }
 
     public void deleteRole(String name) {
-        Role role = roleRepository.findById(name)
+        UUID organizationId = JwtContextHolder.getOrganizationId();
+        RoleId roleId = new RoleId(name, organizationId);
+
+        Role role = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
         roleRepository.delete(role);
     }
 
     public RoleDto createRole(RoleDto roleDto) {
-        if (roleRepository.existsById(roleDto.getName())) {
+        UUID organizationId = JwtContextHolder.getOrganizationId();
+
+        if (roleRepository.existsByNameAndOrganizationId(roleDto.getName(), organizationId)) {
             throw new BaseException(ConstantUtil.DUPLICATE_ROLE, HttpStatus.BAD_REQUEST.value());
         }
         Set<Permission> existingPermissions = roleDto.getPermissions().stream()
@@ -59,6 +84,7 @@ public class RoleService {
                 .collect(Collectors.toSet());
 
         Role newRole = roleMapper.toEntity(roleDto);
+        newRole.setOrganizationId(organizationId);
         newRole.setPermissions(existingPermissions);
         Role savedRole = roleRepository.save(newRole);
 
@@ -66,7 +92,10 @@ public class RoleService {
     }
 
     public RoleDto updateRole(String name, RoleDto roleDto) {
-        Role existingRole = roleRepository.findById(name)
+        UUID organizationId = JwtContextHolder.getOrganizationId();
+        RoleId roleId = new RoleId(name, organizationId);
+
+        Role existingRole = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
 
         roleMapper.partialUpdate(roleDto, existingRole);
@@ -83,7 +112,40 @@ public class RoleService {
     }
 
     public boolean roleExists(String name) {
-        return roleRepository.existsById(name);
+        UUID organizationId = JwtContextHolder.getOrganizationId();
+        return roleRepository.existsByNameAndOrganizationId(name, organizationId);
+    }
+
+    @Transactional
+    public void deleteByOrganizationId(UUID organizationId) {
+        roleRepository.deleteByOrganizationId(organizationId);
+    }
+
+    public List<RoleDto> getAllRolesByOrganizationId(UUID organizationId) {
+        List<Role> roles = roleRepository.findByOrganizationIdOrderByName(organizationId);
+
+        return roles.stream()
+                .map(this::toDtoWithSortedPermissions)
+                .collect(Collectors.toList());
+    }
+
+    private RoleDto toDtoWithSortedPermissions(Role role) {
+        List<PermissionDto> sortedPermissions = role.getPermissions().stream()
+                .sorted(Comparator.comparing(Permission::getName))
+                .map(this::toPermissionDto)
+                .collect(Collectors.toList());
+
+        RoleDto roleDto = new RoleDto();
+        roleDto.setName(role.getName());
+        roleDto.setOrganizationId(role.getOrganizationId());
+        roleDto.setPermissions(sortedPermissions);
+        return roleDto;
+    }
+
+    private PermissionDto toPermissionDto(Permission permission) {
+        PermissionDto permissionDTO = new PermissionDto();
+        permissionDTO.setName(permission.getName());
+        return permissionDTO;
     }
 
 }

@@ -24,7 +24,7 @@ public class PermissionService {
     }
 
     public List<PermissionDto> getAllPermissions() {
-        List<Permission> permissions = permissionRepository.findAll();
+        List<Permission> permissions = permissionRepository.findAllByOrderByNameAsc();
 
         return permissions.stream()
                 .map(permission -> permissionMapper.toDto(permission))

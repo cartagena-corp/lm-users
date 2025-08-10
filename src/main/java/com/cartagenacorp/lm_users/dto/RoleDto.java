@@ -6,7 +6,9 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * DTO for {@link com.cartagenacorp.lm_users.entity.Role}
@@ -16,5 +18,6 @@ import java.util.Set;
 @NoArgsConstructor
 public class RoleDto implements Serializable {
     private String name;
-    private Set<PermissionDto> permissions = new HashSet<>();
+    private List<PermissionDto> permissions;
+    private UUID organizationId;
 }
