@@ -24,6 +24,14 @@ import java.util.stream.Collectors;
 @Service
 public class RoleService {
 
+    private static final Set<String> RESTRICTED_PERMISSIONS = Set.of(
+            "ORGANIZATION_CONTROL",
+            "PERMISSION_CREATE",
+            "PERMISSION_DELETE"
+    );
+
+    private static final String superAdminRole = "SUPER_ADMIN";
+
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final RoleMapper roleMapper;
@@ -75,6 +83,12 @@ public class RoleService {
     public RoleDto createRole(RoleDto roleDto) {
         UUID organizationId = JwtContextHolder.getOrganizationId();
 
+        if (!superAdminRole.equals(JwtContextHolder.getRole())) {
+            validatePermissionsForNonSuperAdmin(roleDto.getPermissions().stream()
+                    .map(p -> p.getName())
+                    .collect(Collectors.toSet()));
+        }
+
         if (roleRepository.existsByNameAndOrganizationId(roleDto.getName(), organizationId)) {
             throw new BaseException(ConstantUtil.DUPLICATE_ROLE, HttpStatus.BAD_REQUEST.value());
         }
@@ -94,6 +108,12 @@ public class RoleService {
     public RoleDto updateRole(String name, RoleDto roleDto) {
         UUID organizationId = JwtContextHolder.getOrganizationId();
         RoleId roleId = new RoleId(name, organizationId);
+
+        if (!superAdminRole.equals(JwtContextHolder.getRole())) {
+            validatePermissionsForNonSuperAdmin(roleDto.getPermissions().stream()
+                    .map(p -> p.getName())
+                    .collect(Collectors.toSet()));
+        }
 
         Role existingRole = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
@@ -146,6 +166,12 @@ public class RoleService {
         PermissionDto permissionDTO = new PermissionDto();
         permissionDTO.setName(permission.getName());
         return permissionDTO;
+    }
+
+    private void validatePermissionsForNonSuperAdmin(Set<String> assignedPermissions) {
+        if (assignedPermissions.stream().anyMatch(RESTRICTED_PERMISSIONS::contains)) {
+            throw new BaseException("No tiene permisos para asignar uno o más de estos roles", HttpStatus.FORBIDDEN.value());
+        }
     }
 
 }

@@ -41,9 +41,11 @@ public class PermissionAspect {
 
         UUID userId = jwtTokenUtil.getUserId(token);
         UUID organizationId = jwtTokenUtil.getOrganizationId(token);
+        String role = jwtTokenUtil.getRole(token);
         JwtContextHolder.setUserId(userId);
         JwtContextHolder.setToken(token);
         JwtContextHolder.setOrganizationId(organizationId);
+        JwtContextHolder.setRole(role);
 
         try {
             boolean hasPermission = Arrays.stream(requiresPermission.value())

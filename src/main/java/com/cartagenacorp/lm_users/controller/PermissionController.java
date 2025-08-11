@@ -23,13 +23,13 @@ public class PermissionController {
     }
 
     @GetMapping
-    @RequiresPermission({"PERMISSION_READ"})
+    @RequiresPermission({"PERMISSION_CRUD", "PERMISSION_READ"})
     public ResponseEntity<List<PermissionDto>> getAllPermissions() {
         return ResponseEntity.ok(permissionService.getAllPermissions());
     }
 
     @PostMapping
-    @RequiresPermission({"PERMISSION_CREATE"})
+    @RequiresPermission({"PERMISSION_CRUD", "PERMISSION_CREATE"})
     public ResponseEntity<PermissionDto> createPermission(@RequestBody PermissionDto permissionDto) {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -37,7 +37,7 @@ public class PermissionController {
     }
 
     @DeleteMapping("/{name}")
-    @RequiresPermission({"PERMISSION_DELETE"})
+    @RequiresPermission({"PERMISSION_CRUD", "PERMISSION_DELETE"})
     public ResponseEntity<NotificationResponse> deletePermission(@PathVariable String name) {
         permissionService.deletePermission(name);
         return ResponseEntity

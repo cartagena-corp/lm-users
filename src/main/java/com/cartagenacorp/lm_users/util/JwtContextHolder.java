@@ -6,6 +6,7 @@ public class JwtContextHolder {
     private static final ThreadLocal<UUID> currentUserId = new ThreadLocal<>();
     private static final ThreadLocal<String> currentToken = new ThreadLocal<>();
     private static final ThreadLocal<UUID> currentOrganizationId = new ThreadLocal<>();
+    private static final ThreadLocal<String> currentRole = new ThreadLocal<>();
 
     public static void setUserId(UUID userId) {
         currentUserId.set(userId);
@@ -31,10 +32,19 @@ public class JwtContextHolder {
         return currentOrganizationId.get();
     }
 
+    public static void setRole(String role) {
+        currentRole.set(role);
+    }
+
+    public static String getRole() {
+        return currentRole.get();
+    }
+
     public static void clear() {
         currentUserId.remove();
         currentToken.remove();
         currentOrganizationId.remove();
+        currentRole.remove();
     }
 }
 
