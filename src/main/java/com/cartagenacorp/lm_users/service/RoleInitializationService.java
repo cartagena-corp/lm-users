@@ -43,6 +43,8 @@ public class RoleInitializationService {
             adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_PROJECT"));
             adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_ISSUE"));
             adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_SPRINT"));
+            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_READ"));
+            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_DELETE"));
 
             adminPermissions.add(getPermissionByName(allPermissions, "PROJECT_CREATE"));
             adminPermissions.add(getPermissionByName(allPermissions, "PROJECT_READ"));
