@@ -83,6 +83,11 @@ public class RoleService {
     public RoleDto createRole(RoleDto roleDto) {
         UUID organizationId = JwtContextHolder.getOrganizationId();
 
+        if (superAdminRole.equalsIgnoreCase(roleDto.getName())
+                && !superAdminRole.equals(JwtContextHolder.getRole())) {
+            throw new BaseException(ConstantUtil.EXCLUSIVE_SUPER_ADMIN_ROL, HttpStatus.FORBIDDEN.value());
+        }
+
         if (!superAdminRole.equals(JwtContextHolder.getRole())) {
             validatePermissionsForNonSuperAdmin(roleDto.getPermissions().stream()
                     .map(p -> p.getName())
@@ -118,6 +123,7 @@ public class RoleService {
         Role existingRole = roleRepository.findById(roleId)
                 .orElseThrow(() -> new BaseException(ConstantUtil.RESOURCE_NOT_FOUND, HttpStatus.NOT_FOUND.value()));
 
+        roleDto.setName(name);
         roleMapper.partialUpdate(roleDto, existingRole);
 
         Set<Permission> existingPermissions = roleDto.getPermissions().stream()

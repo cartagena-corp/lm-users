@@ -14,6 +14,7 @@ public class ConstantUtil {
     public static final String DUPLICATE_ROLE = "El rol ya existe";
     public static final String DUPLICATE_PERMISSION= "El permiso ya existe";
     public static final String INTERNAL_SERVER_ERROR = "Error interno del servidor";
+    public static final String EXCLUSIVE_SUPER_ADMIN_ROL = "El rol SUPER_ADMIN es reservado para el administrador de LA MURALLA";
 
     public class Success {
 
