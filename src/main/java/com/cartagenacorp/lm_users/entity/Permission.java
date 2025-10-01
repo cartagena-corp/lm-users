@@ -12,5 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Permission {
     @Id
+    @Column(name = "name")
     private String name; // e.g., ISSUE_CREATE, PROJECT_READ
 }
