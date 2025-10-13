@@ -5,6 +5,8 @@ import com.cartagenacorp.lm_users.entity.Role;
 import com.cartagenacorp.lm_users.entity.RoleId;
 import com.cartagenacorp.lm_users.repository.PermissionRepository;
 import com.cartagenacorp.lm_users.repository.RoleRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,8 @@ import java.util.UUID;
 @Service
 public class RoleInitializationService {
 
+    private static final Logger logger = LoggerFactory.getLogger(RoleInitializationService.class);
+
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
 
@@ -26,66 +30,53 @@ public class RoleInitializationService {
 
     @Transactional
     public void createDefaultRoles(UUID organizationId) {
-        if (!roleRepository.existsById(new RoleId("ADMIN", organizationId))) {
-            List<Permission> allPermissions = permissionRepository.findAll();
+        logger.info("[RoleInitializationService] [createDefaultRoles] Iniciando creación de roles por defecto para la organización con ID={}", organizationId);
 
-            Set<Permission> adminPermissions = new HashSet<>();
-            adminPermissions.add(getPermissionByName(allPermissions, "USER_CREATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "USER_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "USER_UPDATE"));
+        RoleId adminRoleId = new RoleId("ADMIN", organizationId);
 
-            adminPermissions.add(getPermissionByName(allPermissions, "ROLE_CREATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "ROLE_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "ROLE_UPDATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "ROLE_DELETE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "PERMISSION_READ"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_PROJECT"));
-            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_ISSUE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_SPRINT"));
-            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "CONFIG_DELETE"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "PROJECT_CREATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "PROJECT_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "PROJECT_UPDATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "PROJECT_DELETE"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "ISSUE_CREATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "ISSUE_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "ISSUE_UPDATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "ISSUE_DELETE"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "COMMENT_CREATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "COMMENT_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "COMMENT_UPDATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "COMMENT_DELETE"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "SPRINT_CREATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "SPRINT_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "SPRINT_UPDATE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "SPRINT_DELETE"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "GEMINI_CONFIG"));
-            adminPermissions.add(getPermissionByName(allPermissions, "GEMINI_ACTIVE"));
-            adminPermissions.add(getPermissionByName(allPermissions, "IMPORT_PROJECT"));
-
-            adminPermissions.add(getPermissionByName(allPermissions, "AUDIT_READ"));
-            adminPermissions.add(getPermissionByName(allPermissions, "NOTIFICATION_CRUD"));
-            adminPermissions.add(getPermissionByName(allPermissions, "NOTIFICATION_TYPE_CRUD"));
-
-            Role adminRole = new Role();
-            adminRole.setName("ADMIN");
-            adminRole.setOrganizationId(organizationId);
-            adminRole.setPermissions(adminPermissions);
-            roleRepository.save(adminRole);
+        if (roleRepository.existsById(adminRoleId)) {
+            logger.info("[RoleInitializationService] [createDefaultRoles] El rol ADMIN ya existe para la organización con ID={}", organizationId);
+            return;
         }
+
+        logger.info("[RoleInitializationService] [createDefaultRoles] El rol ADMIN no existe. Creando rol por defecto.");
+
+        List<Permission> allPermissions = permissionRepository.findAll();
+        logger.debug("[RoleInitializationService] [createDefaultRoles] Se encontraron {} permisos en la base de datos", allPermissions.size());
+
+        Set<Permission> adminPermissions = new HashSet<>();
+        String[] adminPermissionNames = {
+                "USER_CREATE", "USER_READ", "USER_UPDATE",
+                "ROLE_CREATE", "ROLE_READ", "ROLE_UPDATE", "ROLE_DELETE", "PERMISSION_READ",
+                "CONFIG_PROJECT", "CONFIG_ISSUE", "CONFIG_SPRINT", "CONFIG_READ", "CONFIG_DELETE",
+                "PROJECT_CREATE", "PROJECT_READ", "PROJECT_UPDATE", "PROJECT_DELETE",
+                "ISSUE_CREATE", "ISSUE_READ", "ISSUE_UPDATE", "ISSUE_DELETE",
+                "COMMENT_CREATE", "COMMENT_READ", "COMMENT_UPDATE", "COMMENT_DELETE",
+                "SPRINT_CREATE", "SPRINT_READ", "SPRINT_UPDATE", "SPRINT_DELETE",
+                "GEMINI_CONFIG", "GEMINI_ACTIVE", "IMPORT_PROJECT",
+                "AUDIT_READ", "NOTIFICATION_CRUD", "NOTIFICATION_TYPE_CRUD"
+        };
+
+        for (String name : adminPermissionNames) {
+            adminPermissions.add(getPermissionByName(allPermissions, name));
+        }
+
+        Role adminRole = new Role();
+        adminRole.setName("ADMIN");
+        adminRole.setOrganizationId(organizationId);
+        adminRole.setPermissions(adminPermissions);
+        roleRepository.save(adminRole);
+
+        logger.info("[RoleInitializationService] [createDefaultRoles] Rol ADMIN creado exitosamente para la organización con  ID={}", organizationId);
     }
 
     private Permission getPermissionByName(List<Permission> permissions, String name) {
         return permissions.stream()
                 .filter(p -> p.getName().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Permission not found: " + name));
+                .orElseThrow(() -> {
+                    logger.error("[RoleInitializationService] [getPermissionByName] No se encontró el permiso: {}", name);
+                    return new IllegalArgumentException("Permiso no encontrado: " + name);
+                });
     }
 }
